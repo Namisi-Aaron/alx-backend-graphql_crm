@@ -85,9 +85,13 @@ class OrderMutation(graphene.Mutation):
         return OrderMutation(order=order)
 
 class Query(graphene.ObjectType):
+    hello = graphene.String()
     all_products = graphene.List(ProductType)
     all_customers = graphene.List(CustomerType)
     all_orders = graphene.List(OrderType)
+
+    def resolve_hello(root, info):
+        return "Hello, Graphql!"
 
     def resolve_all_products(root, info):
         return Product.objects.all()
