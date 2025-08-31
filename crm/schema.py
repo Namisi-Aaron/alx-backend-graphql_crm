@@ -84,6 +84,40 @@ class OrderMutation(graphene.Mutation):
         order.product_ids.set(product_ids)
         return OrderMutation(order=order)
 
+class ProductInfo(graphene.ObjectType):
+    name = graphene.String()
+    stock = graphene.Int()
+
+class UpdateLowStockProducts(graphene.Mutation):
+    success = graphene.Boolean()
+    products = graphene.List(ProductInfo)
+
+    class Arguments:
+        pass
+
+    def mutate(root, info):
+
+            try:
+                restocked_products = []
+                low_stock_products = Product.objects.filter(stock__lt=10)
+
+                if low_stock_products.exists():
+                    for product in low_stock_products:
+                        product.stock += 10
+                        product.save()
+                        restocked_products.append(
+                            ProductInfo(name=product.name, stock=product.stock)
+                        )
+
+                    return UpdateLowStockProducts(success=True, products=restocked_products)
+                
+                else:
+                    return UpdateLowStockProducts(success=False, products=[])
+
+            except Exception as e:
+                print(f"Error: {e}")
+                return UpdateLowStockProducts(success=False, products=[])
+
 class Query(graphene.ObjectType):
     hello = graphene.String()
     all_products = graphene.List(ProductType)
@@ -107,5 +141,6 @@ class Mutation(graphene.ObjectType):
     create_customer = CustomerMutation.Field()
     create_order = OrderMutation.Field()
     bulk_create_customers = BulkCreateCustomers.Field()
+    update_low_stock_products = UpdateLowStockProducts.Field()
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
