@@ -1,8 +1,6 @@
+import requests
 import logging
-from gql import gql, Client
-from gql.transport.requests import RequestsHTTPTransport
 from datetime import datetime
-
 from celery import shared_task
 
 LOG_FILE = "/tmp/crm_report_log.txt"
@@ -14,33 +12,37 @@ logging.basicConfig(
     format="%(message)s"
 )
 
-transport = RequestsHTTPTransport(
-    url=GRAPHQL_ENDPOINT,
-    verify=True,
-    retries=3,
-)
-
-client = Client(transport=transport, fetch_schema_from_transport=True)
-
-query = gql("""
+query = """
     query {
         totalRevenue
         totalOrders
         totalCustomers
     }
-""")
+"""
 
 @shared_task
 def generate_crm_report():
     try:
-        response = client.execute(query)
+        response = requests.post(
+            GRAPHQL_ENDPOINT,
+            headers={"Content-Type": "application/json"},
+            json={"query": query},
+            timeout=10
+        )
+        response.raise_for_status()
+        
+        data = response.json().get("data", {})
+
+        total_customers = data.get("totalCustomers", 0)
+        total_orders = data.get("totalOrders", 0)
+        total_revenue = data.get("totalRevenue", 0)
+
         now = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-        message = f"{now} - Report: {response.get('totalCustomers', 0)} customers, {response.get('totalOrders', 0)} orders, {response.get('totalRevenue', 0)} revenue"
+        message = f"{now} - Report: {total_customers} customers, {total_orders} orders, {total_revenue} revenue"
 
-        with open(LOG_FILE, "a") as log_file:
-            log_file.write(message)
+        logging.info(message)
+        return {"success": True, "message": message}
 
-        return response
     except Exception as e:
         logging.error(f"Error generating CRM report: {e}")
-        return {"Details": str(e)}
+        return {"success": False, "Details": str(e)}
