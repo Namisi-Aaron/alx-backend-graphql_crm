@@ -16,7 +16,7 @@ class CustomerType(DjangoObjectType):
 class OrderType(DjangoObjectType):
     class Meta:
         model = Order
-        fields = ("customer_id", "product_ids", "order_date")
+        fields = ("id", "customer_id", "product_ids", "order_date")
 
 class ProductMutation(graphene.Mutation):
     class Arguments:
